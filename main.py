@@ -7,9 +7,11 @@ import time
 
 import CBOR as cbor
 import pycom
+from machine import Pin, PWM
 from MFRC630 import MFRC630
 from network import LoRa
 from pyscan import Pyscan
+
 
 lora = LoRa(mode=LoRa.LORAWAN)
 
@@ -41,6 +43,7 @@ s.setsockopt(socket.SOL_LORA, socket.SO_DR, 5)
 s.setsockopt(socket.SOL_LORA, socket.SO_CONFIRMED, False)
 s.settimeout(10)
 
+
 def purgeLNSQueue():
     purgeCode = cbor.dumps([-2])
     pycom.rgbled(0x0000001)
@@ -64,6 +67,7 @@ def purgeLNSQueue():
 
 # Empty the queue
 purgeLNSQueue()
+
 
 # Ping the LNS
 resetCode = cbor.dumps([-1])
@@ -105,7 +109,15 @@ direction = 1
 RGB_BRIGHTNESS = 0x08
 counter = 0
 
-# Make sure heartbeat is disabled before setting RGB LED
+# Bip
+def buz(frequency=440):
+    buz = Pin("P10")  # Buzzer
+    tim = PWM(0, frequency=frequency)
+    ch = tim.channel(2, duty_cycle=0.5, pin=buz)
+    time.sleep(1)
+    tim = PWM(0, frequency=0)
+    ch.duty_cycle(0)
+
 
 # Initialise the MFRC630 with some settings
 nfc.mfrc630_cmd_init()
@@ -125,6 +137,7 @@ while True:
     # Send REQA for ISO14443A card type
     atqa = nfc.mfrc630_iso14443a_WUPA_REQA(nfc.MFRC630_ISO14443_CMD_REQA)
     if atqa != 0:
+        buz(440)
         # A card has been detected, read UID
         uid = bytearray(10)
         uid_len = nfc.mfrc630_iso14443a_select(uid)
@@ -132,7 +145,7 @@ while True:
             # A valid UID has been detected, print details
             counter += 1
             pycom.rgbled(RGB_GREEN)
-
+            buz(540)
             print(
                 "%d\tUID [%d]: %s" % (counter, uid_len, nfc.format_block(uid, uid_len))
             )
@@ -152,6 +165,7 @@ while True:
 
                 pycom.rgbled(0x110011)
 
+                buz(640)
                 try:
                     data = s.recv(64)
 
@@ -164,12 +178,13 @@ while True:
                 except:
                     print("timeout in receive")
                     pycom.rgbled(0x000001)
-
+                buz(740)
                 s.setblocking(False)
                 time.sleep(20)
                 cptRetrans += 1
 
     else:
+        buz(340)
         pycom.rgbled(RGB_BLUE)
     # We could go into power saving mode here... to be investigated
     nfc.mfrc630_cmd_reset()
