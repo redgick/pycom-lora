@@ -118,6 +118,7 @@ def buz(frequency=440):
     tim = PWM(0, frequency=0)
     ch.duty_cycle(0)
 
+buz(340)  # Reader ready
 
 # Initialise the MFRC630 with some settings
 nfc.mfrc630_cmd_init()
@@ -137,7 +138,6 @@ while True:
     # Send REQA for ISO14443A card type
     atqa = nfc.mfrc630_iso14443a_WUPA_REQA(nfc.MFRC630_ISO14443_CMD_REQA)
     if atqa != 0:
-        buz(440)
         # A card has been detected, read UID
         uid = bytearray(10)
         uid_len = nfc.mfrc630_iso14443a_select(uid)
@@ -145,7 +145,7 @@ while True:
             # A valid UID has been detected, print details
             counter += 1
             pycom.rgbled(RGB_GREEN)
-            buz(540)
+            buz(440)  # Tag read
             print(
                 "%d\tUID [%d]: %s" % (counter, uid_len, nfc.format_block(uid, uid_len))
             )
@@ -155,7 +155,7 @@ while True:
 
             cptRetrans = 0
 
-            while cptRetrans < 3:
+            while cptRetrans < 5:
                 s.setblocking(True)
                 s.settimeout(10)
                 try:
@@ -165,7 +165,7 @@ while True:
 
                 pycom.rgbled(0x110011)
 
-                buz(640)
+                buz(540)  # Message sent
                 try:
                     data = s.recv(64)
 
@@ -174,17 +174,16 @@ while True:
                     print(r)
 
                     if r[0] == counter:
+                        buz(640)  # Response OK
                         break
                 except:
                     print("timeout in receive")
                     pycom.rgbled(0x000001)
-                buz(740)
-                s.setblocking(False)
-                time.sleep(20)
-                cptRetrans += 1
 
+                s.setblocking(False)
+                time.sleep(5)
+                cptRetrans += 1
     else:
-        buz(340)
         pycom.rgbled(RGB_BLUE)
     # We could go into power saving mode here... to be investigated
     nfc.mfrc630_cmd_reset()
@@ -192,5 +191,5 @@ while True:
     # Re-Initialise the MFRC630 with settings as these got wiped during reset
     nfc.mfrc630_cmd_init()
 
-    if time.time() % 60 == 0:  # Once per minute we purge the queue
+    if time.time() % 3600 == 0:  # Once per hour we purge the queue
         purgeLNSQueue()
